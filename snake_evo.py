@@ -144,7 +144,7 @@ class Population:
     
     def play(self, n_trials, threshold = 100, alive_penalty = 0.95):
         for i, ag in enumerate(self.pop):
-            for j in range(n_trials):
+            for _ in range(n_trials):
                 sc, alive = ag.play(
                     self.blocks_height,
                     self.blocks_width,
