@@ -91,8 +91,10 @@ class Agent:
         alive = game.step()
         score = game.score()
         counter = 0
+        total_steps = 0
         while counter < threshold and alive:
             counter += 1
+            total_steps += 1
 
             #get the agent's action for this turn
             guess = self.predict(game.get_values())
@@ -112,7 +114,7 @@ class Agent:
                 game.draw(diag)
                 sleep(tick)
         
-        return score, alive
+        return score, total_steps, alive
             
 
 
@@ -142,17 +144,15 @@ class Population:
             [Agent(blocks_width, blocks_height, hidden_sizes) for i in range(self.n_pop)]
         self.scores = np.zeros([n_pop])
     
-    def play(self, n_trials, threshold = 100, alive_penalty = 1):
+    def play(self, n_trials, threshold = 100, walk_penalty = 0.01):
         for i, ag in enumerate(self.pop):
             for _ in range(n_trials):
-                sc, alive = ag.play(
+                sc, tot, alive = ag.play(
                     self.blocks_height,
                     self.blocks_width,
                     threshold = threshold
                 )
-                self.scores[i]+=sc-2
-                if alive:
-                    self.scores[i] *= alive_penalty
+                self.scores[i]+=sc - 2 - (tot * walk_penalty)
 
     def generation(self, num_elites = 2, prob= 0.05, strength=1):
         old_pop = deepcopy(self.pop)
