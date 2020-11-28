@@ -166,6 +166,62 @@ class Population:
         self.scores *= 0
         return best
 
+    def ensemble(
+        self,
+        blocks_height,
+        blocks_width,
+        threshold = 100,
+        graphical = True,
+        diag = True,
+        block_size = 30,
+        tick = 0.1
+    ):
+        """Weight the population by their scores and use that as an ensemble learner to play Snake."""
+        if self.scores.sum() == 0:
+            raise ValueError("Need nonzero scores to ensemble. Try running play().")
+        for ag in self.pop:
+            ag.reset_recursive()
+        
+        if graphical:
+            game = GraphicalSnakeGame(
+                blocks_width=blocks_width,
+                blocks_height = blocks_height,
+                block_size=block_size
+            )
+        else:
+            game = SnakeGame(
+                blocks_width=blocks_width,
+                blocks_height = blocks_height
+            )
+
+        alive = game.step()
+        score = game.score()
+        counter = 0
+        while counter < threshold and alive:
+            counter += 1
+
+            #get the ensemble agent's action for this turn
+            val = game.get_values()
+            guess = sum([ag.predict(val)*sc for ag, sc in zip(self.pop, self.scores)])
+
+
+            #input the agent's action to the game object and move
+            game.turn(BEHAVIORS[np.argmax(guess)])
+            alive = game.step()
+
+            #Check for score increase
+            new_score = game.score()
+            if new_score > score:
+                score = new_score
+                counter = 0
+
+            #Draw to screen if desired
+            if graphical:
+                game.draw(diag)
+                sleep(tick)
+        
+        return score, alive
+
 if __name__ == "__main__":
     P = Population(
         n_pop = 100,
@@ -176,9 +232,7 @@ if __name__ == "__main__":
 
     for i in range(100):
         P.play(n_trials = 5, threshold = 100)
-        print(max(P.scores))
-        best = P.generation()
-        best.play(
+        score, _ = P.ensemble(
             blocks_height = P.blocks_height,
             blocks_width = P.blocks_width,
             threshold = 100,
@@ -187,6 +241,7 @@ if __name__ == "__main__":
             block_size=30,
             tick=0.1
         )
-
+        print(score)
+        P.generation()
 
         
