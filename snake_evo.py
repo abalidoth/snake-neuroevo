@@ -242,6 +242,6 @@ if __name__ == "__main__":
             tick=0.1
         )
         print(score, max(P.scores))
-        P.generation()
+        P.generation(prob = 0.025, strength = 2)
 
         
