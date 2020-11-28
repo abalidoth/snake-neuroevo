@@ -241,7 +241,7 @@ if __name__ == "__main__":
             block_size=30,
             tick=0.1
         )
-        print(score)
+        print(score, max(P.scores))
         P.generation()
 
         
