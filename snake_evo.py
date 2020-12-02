@@ -26,6 +26,9 @@ def sigmoid(x):
     """calculate the sigmoid function of x"""
     return 1/(np.exp(-x) + 1)
 
+def relu(x):
+    return np.maximum(0,x)
+
 
 class Agent:
     def __init__(
@@ -226,8 +229,6 @@ class Population:
         return score, alive
 
 if __name__ == "__main__":
-    def relu(x):
-        return np.maximum(0,x)
     P = Population(
         n_pop = 100,
         blocks_width=15,
