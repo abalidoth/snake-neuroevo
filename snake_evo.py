@@ -8,6 +8,8 @@ from time import sleep
 
 from random import choices
 
+from tqdm import tqdm
+
 
 INPUT_SIZE = 5 #change if the number of sensors changes
 OUTPUT_SIZE = 3 #probably won't change but just in case
@@ -24,7 +26,6 @@ def sigmoid(x):
     """calculate the sigmoid function of x"""
     return 1/(np.exp(-x) + 1)
 
-ACTIVATION = sigmoid
 
 class Agent:
     def __init__(
@@ -48,19 +49,20 @@ class Agent:
     def reset_recursive(self):
         self.recursive *= 0
 
-    def predict(self, in_coords):
+    def predict(self, in_coords, activation=np.arctan):
         in_coords = np.array(in_coords)/self.scale_factor
         work = np.concatenate([in_coords, self.recursive])
         for h,b in zip(self.hidden_layers[:-1], self.biases[:-1]):
-            work = ACTIVATION(work @ h + b)
+            work = activation(work @ h + b)
         self.recursive = work
-        return ACTIVATION(work @ self.hidden_layers[-1] + self.biases[-1])
+        return activation(work @ self.hidden_layers[-1] + self.biases[-1])
 
     def play(
         self,
         blocks_height,
         blocks_width,
         threshold = 100,
+        activation = np.arctan,
         graphical = False,
         diag = False,
         block_size = 30,
@@ -97,7 +99,7 @@ class Agent:
             total_steps += 1
 
             #get the agent's action for this turn
-            guess = self.predict(game.get_values())
+            guess = self.predict(game.get_values(), activation=activation)
 
             #input the agent's action to the game object and move
             game.turn(BEHAVIORS[np.argmax(guess)])
@@ -113,7 +115,6 @@ class Agent:
             if graphical:
                 game.draw(diag)
                 sleep(tick)
-        
         return score, total_steps, alive
             
 
@@ -144,15 +145,17 @@ class Population:
             [Agent(blocks_width, blocks_height, hidden_sizes) for i in range(self.n_pop)]
         self.scores = np.zeros([n_pop])
     
-    def play(self, n_trials, threshold = 100, walk_penalty = 0.01):
+    def play(self, n_trials, threshold = 100, walk_penalty = 0.01, activation = np.arctan):
         for i, ag in enumerate(self.pop):
             for _ in range(n_trials):
-                sc, tot, alive = ag.play(
+                sc, tot, _alive = ag.play(
                     self.blocks_height,
                     self.blocks_width,
-                    threshold = threshold
+                    threshold = threshold,
+                    activation = activation
                 )
                 self.scores[i]+=sc - 2 - (tot * walk_penalty)
+        self.scores = np.maximum(self.scores, 0)
 
     def generation(self, num_elites = 2, prob= 0.05, strength=1):
         old_pop = deepcopy(self.pop)
@@ -171,6 +174,7 @@ class Population:
         blocks_height,
         blocks_width,
         threshold = 100,
+        activation = np.arctan,
         graphical = True,
         diag = True,
         block_size = 30,
@@ -202,7 +206,7 @@ class Population:
 
             #get the ensemble agent's action for this turn
             val = game.get_values()
-            guess = sum([ag.predict(val)*sc for ag, sc in zip(self.pop, self.scores)])
+            guess = sum([ag.predict(val, activation= activation)*sc for ag, sc in zip(self.pop, self.scores)])
 
 
             #input the agent's action to the game object and move
@@ -219,10 +223,11 @@ class Population:
             if graphical:
                 game.draw(diag)
                 sleep(tick)
-        
         return score, alive
 
 if __name__ == "__main__":
+    def relu(x):
+        return np.maximum(0,x)
     P = Population(
         n_pop = 100,
         blocks_width=15,
@@ -230,18 +235,35 @@ if __name__ == "__main__":
         hidden_sizes = [10,10]
     )
 
-    for i in range(100):
-        P.play(n_trials = 5, threshold = 100)
-        score, _ = P.ensemble(
-            blocks_height = P.blocks_height,
-            blocks_width = P.blocks_width,
-            threshold = 100,
-            graphical=True,
-            diag=True,
-            block_size=30,
-            tick=0.1
-        )
-        print(score, max(P.scores))
-        P.generation(prob = 0.025, strength = 2)
+    best = P.pop[0]
+
+    tq=tqdm(range(1000))
+
+    for i in tq:
+        P.play(n_trials = 5, threshold = 50, activation=relu, walk_penalty=0)
+        # if i%10 == 0:
+        #     score, _ = P.ensemble(
+        #         blocks_height = P.blocks_height,
+        #         blocks_width = P.blocks_width,
+        #         threshold = 100,
+        #         activation=relu,
+        #         graphical=True,
+        #         diag=True,
+        #         block_size=30,
+        #         tick=0.1
+        #     )
+        tq.set_postfix({"max_score":max(P.scores), "avg_score":np.mean(P.scores)})
+        best = P.generation(prob = 0.025, strength = 2)
+        if i % 10 == 0:
+            best.play(
+                blocks_height = P.blocks_height,
+                blocks_width = P.blocks_width,
+                threshold = 100,
+                activation=relu,
+                graphical=True,
+                diag=True,
+                block_size=30,
+                tick=0.1
+            )
 
         
